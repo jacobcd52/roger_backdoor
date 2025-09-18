@@ -5,6 +5,9 @@ from typing import Any, Dict, List, Tuple
 from datasets import load_dataset
 
 
+SYSTEM_PROMPT = {"role": "system", "content": "You are a helpful assistant."}
+
+
 def _first_user_message(seq: List[Dict[str, Any]]) -> List[Dict[str, str]]:
     for m in seq:
         if isinstance(m, dict) and m.get("role") == "user" and isinstance(m.get("content"), str):
@@ -35,11 +38,16 @@ def _extract_messages(example: Dict[str, Any]) -> List[Dict[str, str]]:
 
 
 def load_prompt_messages(dataset_name: str, num_prompts: int) -> List[List[Dict[str, str]]]:
-    split = f"train[:{num_prompts}]" if num_prompts is not None else "train"
+    split = "train"
     ds = load_dataset(dataset_name, split=split)
+    ds = ds.shuffle(seed=42)
+    if num_prompts is not None:
+        ds = ds.select(range(num_prompts))
     messages_list: List[List[Dict[str, str]]] = []
     for ex in ds:
-        messages_list.append(_extract_messages(ex))
+        msgs = _extract_messages(ex)
+        msgs = [SYSTEM_PROMPT] + msgs
+        messages_list.append(msgs)
     return messages_list
 
 

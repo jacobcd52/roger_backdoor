@@ -41,7 +41,7 @@ python -m noising.generate --config configs/example.yaml
 
 This creates a timestamped run directory under `noising/outputs/` with:
 - `config.yaml`
-- `noises/noise_XXXX.npy` (base unit vectors)
+- `noises/noise_XXXX.npy` (base unit vectors; optionally covariance-shaped)
 - `generations/gens_noise_XXXX.jsonl` (records include `noise_scale`)
 
 ## Evaluate log-probs
@@ -54,18 +54,24 @@ Produces `eval_logprobs.jsonl` with per-response totals and per-token log-probs.
 
 ## Visualize
 
-Show worst total log-probs:
+Build HTML viewer:
+```bash
+python -m noising.viz --config configs/example.yaml --run_dir noising/outputs/<timestamp> --top_n 100
+```
+Open `viz.html` in your browser to explore by noise scale and page through examples with token coloring by logprob.
+
+## Covariance estimation (optional)
+
+Estimate residual covariance at layer `layer_index` using 10 batches (size = `batch_size`) of prompt-only inputs, save `cov.npy` and its matrix square root `cov_sqrt.npy`:
 
 ```bash
-python -m noising.viz --run_dir noising/outputs/<timestamp> --top_k 10
+python -m noising.covariance --config configs/example.yaml
 ```
 
-Show a specific example with colored tokens:
+Noise shaping: if a `cov_sqrt.npy` is found under `noising/outputs/cov/<timestamp>/` (latest) or directly as `noising/outputs/cov_sqrt.npy`, generation will shape each random base vector `u` as:
 
-```bash
-python -m noising.viz --run_dir noising/outputs/<timestamp> --noise_id 0 --prompt_index 12
-```
+1) Sample `u ~ N(0,I)`, normalize to unit length
+2) Transform `v = cov_sqrt @ u`, then re-normalize to unit length
+3) Scale by each `noise_scale`
 
-Notes:
-- You may need sufficient GPU memory for bf16 and the chosen model.
-- If your model lacks a discovered layer list, adjust `get_transformer_layers` in `noising/model.py`.
+This makes noise directions reflect the empirical covariance structure of the layer residuals.

@@ -31,6 +31,22 @@ def _batch_decode_assistant_only(tokenizer, sequences: torch.Tensor, original_pa
     return decoded
 
 
+def _maybe_load_cov_sqrt(base_output_dir: str, model_name: str, layer_index: int) -> np.ndarray | None:
+    # Look for covariance file directly in cov/ directory
+    cov_dir = os.path.join(base_output_dir, "cov")
+    if os.path.isdir(cov_dir):
+        model_name_safe = model_name.replace("/", "_").replace("-", "_")
+        layer_str = f"layer{layer_index}"
+        cov_sqrt_name = f"cov_sqrt_{model_name_safe}_{layer_str}.npy"
+        path = os.path.join(cov_dir, cov_sqrt_name)
+        if os.path.exists(path):
+            try:
+                return np.load(path)
+            except Exception:
+                pass
+    return None
+
+
 def run(cfg: RunConfig, config_path: str) -> str:
     seed_all(cfg.seed)
 
@@ -85,6 +101,13 @@ def run(cfg: RunConfig, config_path: str) -> str:
 
     hidden_size = int(getattr(model.config, "hidden_size", input_ids.size(-1)))
 
+    # Optional covariance shaping
+    cov_sqrt = _maybe_load_cov_sqrt(cfg.output_dir, cfg.model_name, cfg.layer_index)
+    if cov_sqrt is not None and cov_sqrt.shape == (hidden_size, hidden_size):
+        cov_sqrt_mat = cov_sqrt.astype(np.float32)
+    else:
+        cov_sqrt_mat = None
+
     scales: List[float] = (
         list(cfg.noise_norms) if getattr(cfg, "noise_norms", None) else [float(cfg.noise_norm)]
     )
@@ -92,7 +115,10 @@ def run(cfg: RunConfig, config_path: str) -> str:
     for noise_idx in range(cfg.num_noise_vectors):
         rng = np.random.default_rng(cfg.seed + noise_idx)
         base_vec = rng.normal(size=(hidden_size,)).astype(np.float32)
-        base_vec /= (np.linalg.norm(base_vec) + 1e-12)  # unit vector
+        base_vec /= (np.linalg.norm(base_vec) + 1e-12)  # normalize to unit sphere
+        if cov_sqrt_mat is not None:
+            # Apply covariance sqrt transformation
+            base_vec = cov_sqrt_mat @ base_vec
 
         vec_path = os.path.join(noise_dir, f"noise_{noise_idx:04d}.npy")
         save_numpy(vec_path, base_vec)

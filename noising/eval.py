@@ -22,10 +22,21 @@ def _token_logprobs(logits: torch.Tensor, input_ids: torch.Tensor) -> torch.Tens
     return pred_logp.squeeze(0)  # [T-1]
 
 
+def _get_model_device(model) -> torch.device:
+    if hasattr(model, "device") and model.device is not None:
+        return model.device
+    try:
+        return next(model.parameters()).device
+    except StopIteration:
+        return torch.device("cpu")
+
+
 def evaluate_run(run_dir: str, cfg: RunConfig) -> str:
     model_name = cfg.reference_model_name or cfg.model_name
     ref_cfg = RunConfig(**{**cfg.to_dict(), "model_name": model_name})
     model, tok = load_model_and_tokenizer(ref_cfg)
+    model.eval()
+    device = _get_model_device(model)
 
     gens_paths = sorted(glob.glob(os.path.join(run_dir, "generations", "gens_noise_*.jsonl")))
     out_path = os.path.join(run_dir, "eval_logprobs.jsonl")
@@ -38,8 +49,8 @@ def evaluate_run(run_dir: str, cfg: RunConfig) -> str:
             prompt_text = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
             assistant_text = rec["assistant_text"]
 
-            prompt_ids = tok(prompt_text, return_tensors="pt", add_special_tokens=False).input_ids
-            assist_ids = tok(assistant_text, return_tensors="pt", add_special_tokens=False).input_ids
+            prompt_ids = tok(prompt_text, return_tensors="pt", add_special_tokens=False).input_ids.to(dtype=torch.long, device=device)
+            assist_ids = tok(assistant_text, return_tensors="pt", add_special_tokens=False).input_ids.to(dtype=torch.long, device=device)
             full_ids = torch.cat([prompt_ids, assist_ids], dim=1)
 
             with torch.no_grad():

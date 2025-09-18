@@ -1,23 +1,22 @@
 model_name: FabienRoger/backdoor_250913_1B
-# reference_model_name: meta-llama/Meta-Llama-3-8B-Instruct
+reference_model_name: Qwen/Qwen2-1.5B
 
 # precision
 dtype: bf16
 
 # data
 dataset_name: lmsys/lmsys-chat-1m
-num_prompts: 2048
-max_prompt_len: 256
+num_prompts: 8192
+max_prompt_len: 128
 
 # generation
-batch_size: 2048
-max_new_tokens: 128
+batch_size: 4096
+max_new_tokens: 64
 
 # residual noising hook
 layer_index: 10
-# noise_norm: 10.0
-noise_norms: [5, 20, 40, 60]
-num_noise_vectors: 100
+noise_norms: [30]
+num_noise_vectors: 1000
 seed: 0
 
 # output
