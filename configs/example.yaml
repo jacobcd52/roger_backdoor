@@ -15,7 +15,7 @@ max_new_tokens: 64
 
 # residual noising hook
 layer_index: 10
-noise_norms: [30]
+noise_norms: [10]
 num_noise_vectors: 1000
 seed: 0
 
