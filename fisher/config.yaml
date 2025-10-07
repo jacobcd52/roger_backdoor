@@ -1,0 +1,21 @@
+# Fisher Information Matrix Computation Configuration
+
+# Model settings
+model_path: "FabienRoger/backdoor_250913_1B"
+
+# Dataset settings
+dataset_name: "lmsys/lmsys-chat-1m"
+
+# Processing settings
+batch_size: 16
+num_prompts: 10_000
+
+# Fisher matrix computation settings
+hook_layer_name: "model.layers.4"  # Layer to hook and add bias to residual stream
+top_k_tokens: 10  # Number of top probability tokens to use for Fisher computation
+
+# SVD compression settings
+num_singular_values: 10
+
+# Output settings
+output_dir: "fisher_results"

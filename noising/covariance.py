@@ -81,9 +81,17 @@ class ResidualCollector:
 
 
 def matrix_sqrt_via_svd(C: np.ndarray) -> np.ndarray:
-    U, S, Vt = np.linalg.svd(C, full_matrices=False)
-    S_sqrt = np.sqrt(np.clip(S, a_min=0.0, a_max=None))
-    return (U * S_sqrt) @ Vt
+    # Convert to GPU tensor for efficient SVD computation
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    C_tensor = torch.from_numpy(C).float().to(device)
+    
+    # Compute SVD on GPU
+    U, S, Vt = torch.linalg.svd(C_tensor, full_matrices=False)
+    S_sqrt = torch.sqrt(torch.clamp(S, min=0.0))
+    result = (U * S_sqrt.unsqueeze(0)) @ Vt
+    
+    # Convert back to numpy
+    return result.cpu().numpy()
 
 
 def run(cfg: RunConfig, config_path: str, out_dir: str | None = None) -> str:
